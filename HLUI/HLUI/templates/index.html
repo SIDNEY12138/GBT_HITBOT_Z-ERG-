@@ -1,0 +1,499 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>GBT插件控制面板</title>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <link rel="stylesheet" href="/static/style.css">
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h1>🤖🤖 GBT插件控制面板20251204</h1>
+            <div class="status-container">
+                <div class="status-item">
+                    <span class="label">机械臂:</span>
+                    <span class="status-badge" id="connectionStatus">未连接</span>
+                </div>
+                <div class="status-item">
+                    <span class="label">Modbus:</span>
+                    <span class="status-badge" id="modbusStatus">未连接</span>
+                </div>
+                <div class="status-item">
+                    <span class="label" id="digitalOutputLabel">数字输出1:</span>
+                    <span class="status-badge" id="digitalOutputStatus">-</span>
+                </div>
+                <div class="status-info">
+                    <span>时间: <span id="currentTime">{{ current_time }}</span></span>
+                    <span>端口: {{ port }}</span>
+                    <span id="lastCheckTime">最后检查: -</span>
+                </div>
+            </div>
+        </div>
+        
+        <div class="connection-panel">
+            <h3>🔗🔗 连接控制</h3>
+            <div class="control-buttons">
+                <button onclick="disconnectRobot()" class="btn-danger">断开连接</button>
+                <button onclick="checkModbusStatus()" class="btn-warning">检查Modbus</button>
+                <button onclick="readAllStatus()" class="btn-info">刷新状态</button>
+                <button onclick="manualControlDigitalOutput()" class="btn-success">手动控制数字输出</button>
+            </div>
+            <div class="auto-refresh">
+                <label>自动刷新:</label>
+                <select id="autoRefresh" onchange="toggleAutoRefresh()">
+                    <option value="0">关闭</option>
+                    <option value="2000">2秒</option>
+                    <option value="5000" selected>5秒</option>
+                    <option value="10000">10秒</option>
+                </select>
+                <span id="reconnectInfo" class="reconnect-info"></span>
+            </div>
+        </div>
+        
+        <div class="nav-tabs">
+            <button class="nav-tab active" onclick="showTab('common')">⚙⚙️ 公共参数</button>
+            <button class="nav-tab" onclick="showTab('clamping')">🖐🖐🖐️ 加持控制</button>
+            <button class="nav-tab" onclick="showTab('rotation')">🔄🔄 旋转控制</button>
+            <button class="nav-tab" onclick="showTab('status')">📊📊 状态监控</button>
+            <button class="nav-tab" onclick="showTab('digital')">🔌🔌 数字输出控制</button>
+        </div>
+        
+        <!-- 公共参数标签页 -->
+        <div id="common" class="tab-content active">
+            <div class="section">
+                <h3>🔧🔧 基本设置</h3>
+                <div class="control-grid">
+                    <div class="control-group">
+                        <h4>📎📎 夹爪设置</h4>
+                        <div class="form-group">
+                            <label>夹爪ID (地址0x80):</label>
+                            <div class="form-row">
+                                <input type="number" id="gripperId" min="1" max="247" value="1">
+                                <button onclick="writeGripperId()" class="btn-primary">写入</button>
+                                <button onclick="readGripperId()" class="btn-info">读取</button>
+                            </div>
+                            <div class="status-display">当前值: <span id="gripperIdValue">-</span></div>
+                        </div>
+                        
+                        <div class="form-group">
+                            <label>夹爪波特率 (地址0x81):</label>
+                            <div class="form-row">
+                                <select id="baudRate">
+                                    <option value="0">0 - 9600</option>
+                                    <option value="1">1 - 19200</option>
+                                    <option value="2">2 - 38400</option>
+                                    <option value="3">3 - 57600</option>
+                                    <option value="4" selected>4 - 115200</option>
+                                    <option value="5">5 - 153600</option>
+                                    <option value="6">6 - 256000</option>
+                                </select>
+                                <button onclick="writeBaudRate()" class="btn-primary">写入</button>
+                                <button onclick="readBaudRate()" class="btn-info">读取</button>
+                            </div>
+                            <div class="status-display">当前值: <span id="baudRateValue">-</span></div>
+                        </div>
+                        
+                        <div class="form-group">
+                            <label>夹爪初始化 (地址0x0):</label>
+                            <button onclick="writeGripperInit()" class="btn-warning">执行初始化</button>
+                            <div class="status-display">状态: <span id="gripperInitStatus">-</span></div>
+                        </div>
+                    </div>
+                    
+                    <div class="control-group">
+                        <h4>⚡⚡ 电机控制</h4>
+                        <div class="form-group">
+                            <label>电机使能 (地址0x16):</label>
+                            <div class="form-row">
+                                <select id="motorEnable">
+                                    <option value="0">关闭</option>
+                                    <option value="1" selected>使能</option>
+                                </select>
+                                <button onclick="writeMotorEnable()" class="btn-primary">写入</button>
+                                <button onclick="readMotorEnable()" class="btn-info">读取</button>
+                            </div>
+                            <div class="status-display">当前值: <span id="motorEnableValue">-</span></div>
+                        </div>
+                        
+                        <div class="form-group">
+                            <label>初始化方向 (地址0x82):</label>
+                            <div class="form-row">
+                                <select id="initDirection">
+                                    <option value="0">张开校准</option>
+                                    <option value="1" selected>闭合校准</option>
+                                </select>
+                                <button onclick="writeInitDirection()" class="btn-primary">写入</button>
+                                <button onclick="readInitDirection()" class="btn-info">读取</button>
+                            </div>
+                            <div class="status-display">当前值: <span id="initDirectionValue">-</span></div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            
+            <div class="section">
+                <h3>🎛🎛️ 高级设置</h3>              
+                <div class="control-grid">
+                    <div class="control-group">
+                        <h4>🔄🔄 初始化设置</h4>
+                        <div class="form-group">
+                            <label>自动初始化 (地址0x83):</label>
+                            <div class="form-row">
+                                <select id="autoInit">
+                                    <option value="0">上电自动校准</option>
+                                    <option value="1">手动校准</option>
+                                </select>
+                                <button onclick="writeAutoInit()" class="btn-primary">写入</button>
+                                <button onclick="readAutoInit()" class="btn-info">读取</button>
+                            </div>
+                            <div class="status-display">当前值: <span id="autoInitValue">-</span></div>
+                        </div>
+                        
+                        <div class="form-group">
+                            <label>保存参数设置 (地址0x84):</label>
+                            <div class="form-row">
+                                <select id="saveParams">
+                                    <option value="0">不保存</option>
+                                    <option value="1">保存</option>
+                                </select>
+                                <button onclick="writeSaveParams()" class="btn-primary">写入</button>
+                                <button onclick="readSaveParams()" class="btn-info">读取</button>
+                            </div>
+                            <div class="status-display">重启生效，点击保存会出现断连属于正常写入内部参数情况，偶发提示写入失败请忽略</div>
+                        </div>
+                    </div>
+                    
+                    <div class="control-group">
+                        <h4>🚫🚫 旋转堵停设置</h4>
+                        <div class="form-group">
+                            <label>旋转堵停使能 (地址0x9E):</label>
+                            <div class="form-row">
+                                <select id="rotationStopEnable">
+                                    <option value="0">不使能</option>
+                                    <option value="1">使能</option>
+                                </select>
+                                <button onclick="writeRotationStopEnable()" class="btn-primary">写入</button>
+                                <button onclick="readRotationStopEnable()" class="btn-info">读取</button>
+                            </div>
+                            <div class="status-display">当前值: <span id="rotationStopEnableValue">-</span></div>
+                        </div>
+                        
+                        <div class="form-group">
+                            <label>旋转堵停灵敏度 (地址0x9F):</label>
+                            <div class="form-row">
+                                <input type="number" id="rotationStopSensitivity" min="0" max="100" value="50">
+                                <button onclick="writeRotationStopSensitivity()" class="btn-primary">写入</button>
+                                <button onclick="readRotationStopSensitivity()" class="btn-info">读取</button>
+                            </div>
+                            <div class="status-display">当前值: <span id="rotationStopSensitivityValue">-</span></div>
+                        </div>
+                        
+                        <div class="form-group">
+                            <label>复位多圈转动值 (地址0x8F):</label>
+                            <div class="form-row">
+                                <select id="resetRotation">
+                                    <option value="0">正常</option>
+                                    <option value="1">复位</option>
+                                </select>
+                                <button onclick="writeResetRotation()" class="btn-primary">写入</button>
+                            </div>
+                            <div class="status-display">写入1将复位多圈转动值</div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+        
+        <!-- 加持控制标签页 -->
+        <div id="clamping" class="tab-content">
+            <div class="section">
+                <h3>🖐🖐🖐️ 加持控制</h3>
+                <div class="control-grid">
+                    <div class="control-group">
+                        <h4>📏📏 加持参数设置</h4>
+                        <div class="form-group">
+                            <label>加持位置 (地址2，单位mm):</label>
+                            <div class="form-row">
+                                <input type="number" id="clampingPosition" min="0" max="20" step="0.1" value="10">
+                                <button onclick="writeClampingPosition()" class="btn-primary">写入</button>
+                            </div>
+                            <div class="status-display">当前值: <span id="clampingPositionValue">-</span> mm</div>
+                        </div>
+                        
+                        <div class="form-group">
+                            <label>加持速度 (地址4，单位mm/s):</label>
+                            <div class="form-row">
+                                <input type="number" id="clampingSpeed" min="1" max="100" step="1" value="50">
+                                <button onclick="writeClampingSpeed()" class="btn-primary">写入</button>
+                            </div>
+                            <div class="status-display">当前值: <span id="clampingSpeedValue">-</span> mm/s</div>
+                        </div>
+
+
+
+
+
+
+
+
+                        
+                    </div>
+
+
+
+
+
+
+
+
+
+
+                    
+                </div>
+            </div>
+        </div>
+        
+        <!-- 旋转控制标签页 -->
+        <div id="rotation" class="tab-content">
+            <div class="section">
+                <h3>🔄🔄 旋转控制</h3>
+                <div class="control-grid">
+                    <div class="control-group">
+                        <h4>📐📐 旋转参数设置</h4>
+                        <div class="form-group">
+                            <label>旋转绝对角度 (地址0x0A，单位度):</label>
+                            <div class="form-row">
+                                <input type="number" id="rotationAngle" min="-3600000" max="3600000" step="0.1" value="0">
+                                <button onclick="writeRotationAngle()" class="btn-primary">写入</button>
+                            </div>
+                            <div class="status-display">当前值: <span id="rotationAngleValue">-</span> 度</div>
+                        </div>
+                        
+                        <div class="form-group">
+                            <label>旋转速度 (地址0x0E，单位度/秒):</label>
+                            <div class="form-row">
+                                <input type="number" id="rotationSpeed" min="1" max="1080" step="1" value="360">
+                                <button onclick="writeRotationSpeed()" class="btn-primary">写入</button>
+                            </div>
+                            <div class="status-display">当前值: <span id="rotationSpeedValue">-</span> 度/秒</div>
+                        </div>
+                        
+
+                    </div>
+                    
+                </div>
+            </div>
+        </div>
+        
+        <!-- 状态监控标签页 -->
+        <div id="status" class="tab-content">
+            <div class="section">
+                <h3>📊📊 状态监控</h3>
+                <div class="monitor-controls">
+                    <button onclick="readAllStatus()" class="btn-info">刷新所有状态</button>
+                    <button onclick="checkModbusStatus()" class="btn-warning">检查Modbus</button>
+                    <button onclick="updateDigitalOutputStatus()" class="btn-success">刷新数字输出</button>
+                    <span class="last-update">最后更新: <span id="lastUpdateTime">-</span></span>
+                </div>
+                
+                <div class="monitor-grid">
+                    <div class="monitor-group">
+                        <h4>🔧🔧 基本状态</h4>
+                        <div class="monitor-item">
+                            <span class="label">夹爪ID:</span>
+                            <span class="value" id="status_gripper_id">-</span>
+                        </div>
+                        <div class="monitor-item">
+                            <span class="label">波特率:</span>
+                            <span class="value" id="status_baud_rate">-</span>
+                        </div>
+                        <div class="monitor-item">
+                            <span class="label">初始化状态:</span>
+                            <span class="value" id="status_gripper_init_status">-</span>
+                        </div>
+                        <div class="monitor-item">
+                            <span class="label">电机使能:</span>
+                            <span class="value" id="status_motor_enable">-</span>
+                        </div>
+                        <div class="monitor-item">
+                            <span class="label">初始化方向:</span>
+                            <span class="value" id="status_init_direction">-</span>
+                        </div>
+                        <div class="monitor-item">
+                            <span class="label">自动初始化:</span>
+                            <span class="value" id="status_auto_init">-</span>
+                        </div>
+                    </div>
+                    
+                    <div class="monitor-group">
+                        <h4>🖐🖐🖐️ 加持状态</h4>
+                        <div class="monitor-item">
+                            <span class="label">加持状态:</span>
+                            <span class="value" id="status_clamping_status">-</span>
+                        </div>
+                        <div class="monitor-item">
+                            <span class="label">加持位置:</span>
+                            <span class="value" id="status_clamping_position">- mm</span>
+                        </div>
+                        <div class="monitor-item">
+                            <span class="label">加持速度:</span>
+                            <span class="value" id="status_clamping_speed">- mm/s</span>
+                        </div>
+                        <div class="monitor-item">
+                            <span class="label">加持电流:</span>
+                            <span class="value" id="status_clamping_current">- A</span>
+                        </div>
+                    </div>
+                    
+                    <div class="monitor-group">
+                        <h4>🔄🔄 旋转状态</h4>
+                        <div class="monitor-item">
+                            <span class="label">旋转状态:</span>
+                            <span class="value" id="status_rotation_status">-</span>
+                        </div>
+                        <div class="monitor-item">
+                            <span class="label">旋转角度:</span>
+                            <span class="value" id="status_rotation_angle">- 度</span>
+                        </div>
+                        <div class="monitor-item">
+                            <span class="label">旋转速度:</span>
+                            <span class="value" id="status_rotation_speed">- 度/秒</span>
+                        </div>
+                        <div class="monitor-item">
+                            <span class="label">旋转电流:</span>
+                            <span class="value" id="status_rotation_current">- A</span>
+                        </div>
+                        <div class="monitor-item">
+                            <span class="label">旋转堵停使能:</span>
+                            <span class="value" id="status_rotation_stop_enable">-</span>
+                        </div>
+                        <div class="monitor-item">
+                            <span class="label">旋转堵停灵敏度:</span>
+                            <span class="value" id="status_rotation_stop_sensitivity">-</span>
+                        </div>
+                    </div>
+                    
+                    <div class="monitor-group">
+                        <h4>🔌 数字输出状态</h4>
+                        <div class="monitor-item">
+                            <span class="label">Modbus状态指示器:</span>
+                            <span class="value" id="status_modbus_indicator">DO</span>
+                        </div>
+                        <div class="monitor-item">
+                            <span class="label">当前指示器状态:</span>
+                            <span class="value" id="status_current_do">-</span>
+                        </div>
+                        <div class="monitor-item">
+                            <span class="label">控制模式:</span>
+                            <span class="value" id="status_do_control">自动控制</span>
+                        </div>
+                    </div>
+
+
+                    
+                </div>
+            </div>
+        </div>
+        
+        <!-- 数字输出控制标签页 -->
+        <!-- 数字输出控制标签页 -->
+        <div id="digital" class="tab-content">
+            <div class="section">
+                <h3>🔌🔌🔌🔌 数字输出控制</h3>
+                <div class="control-grid">
+
+
+                    
+                    <div class="control-group">
+                        <h4>📊📊📊📊 状态监控</h4>
+                        <div class="form-group">
+                            <label>当前数字输出状态:</label>
+                            <button onclick="updateDigitalOutputStatus()" class="btn-info">刷新状态</button>
+                            <div class="status-display">
+                                数字输出1: <span id="digitalOutputDisplay">-</span><br>
+                                控制模式: <span id="controlModeDisplay">自动控制</span><br>
+                                Modbus连接: <span id="modbusConnectionDisplay">-</span>
+                            </div>
+                        </div>
+                        
+                        <div class="form-group">
+                            <label>自动控制说明:</label>
+                            <div class="status-display">
+                                当前模式: <span id="currentControlMode">自动控制</span><br>
+                                说明:Modbus连接时DO=ON，断开时DO=OFF，如果切换地址请手动复位IO
+                            </div>
+                        </div>
+                    </div>
+
+
+                    
+                    <div class="control-group">
+                        <h4>⚙⚙⚙⚙ 控制信息</h4>
+                        <div class="form-group">
+                            <label>控制状态:</label>
+                            <div class="status-display">
+                                <strong>自动控制模式已启用</strong><br>
+                                • Modbus连接时: DO = ON<br>
+                                • Modbus断开时: DO = OFF<br>
+                                • 无需手动干预
+                            </div>
+                        </div>
+                        
+                        <div class="form-group">
+                            <label>最后状态更新:</label>
+                            <div class="status-display" id="lastDigitalUpdate">
+                                时间: <span id="digitalUpdateTime">-</span><br>
+                                状态: <span id="digitalUpdateStatus">-</span>
+
+
+                                
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- 在数字输出控制标签页的适当位置添加 -->
+                    <div class="control-group">
+                        <h4>⚙️ Modbus状态指示器配置</h4>
+                        <div class="form-group">
+                            <label>选择Modbus连接状态指示器:</label>
+                            <div class="form-row">
+                                <select id="modbusIndicatorDigitalOutput">
+                                    <option value="1">DO1</option>
+                                    <option value="2">DO2</option>
+                                    <option value="3">DO3</option>
+                                    <option value="4">DO4</option>
+                                    <option value="5">DO5</option>
+                                    <option value="6">DO6</option>
+                                    <option value="7">DO7</option>
+                                    <option value="8">DO8</option>
+                                    <option value="9">DO9</option>
+                                    <option value="10">DO10</option>
+                                    <option value="11">DO11</option>
+                                    <option value="12">DO12</option>
+                                    <option value="13">DO13</option>
+                                    <option value="14">DO14</option>
+                                    <option value="15">DO15</option>
+                                    <option value="16">DO16</option>
+                                </select>
+                                <button onclick="setModbusIndicatorDigitalOutput()" class="btn-primary">应用设置</button>
+                                <button onclick="getCurrentModbusIndicatorSetting()" class="btn-info">读取当前设置</button>
+                            </div>
+                            <div class="status-display">
+                                当前Modbus状态指示器: <span id="currentModbusIndicator">DO</span>
+                            </div>
+                        </div>
+                    </div>
+
+
+
+
+                    
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <script src="/static/script.js"></script>
+</body>
+</html>

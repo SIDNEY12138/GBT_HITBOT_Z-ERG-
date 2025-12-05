@@ -1,0 +1,8 @@
+{
+  "name": "HLUI",
+  "type": "generalService",
+  "scriptLang": "python",
+  "description": "hl",
+  "version": "20251204",
+  "entry": "app.py"
+}
